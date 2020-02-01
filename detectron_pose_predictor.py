@@ -31,7 +31,7 @@ def get_resolution(filename):
         return int(w), int(h)
 
 def read_video(filename):
-    w, h = get_resolution(filename)
+    h, w = get_resolution(filename)
 
     command = ['ffmpeg',
             '-i', filename,
