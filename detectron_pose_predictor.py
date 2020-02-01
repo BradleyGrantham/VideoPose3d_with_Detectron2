@@ -1,10 +1,15 @@
 import os
-import numpy as np
-import cv2
 import subprocess as sp
-import detectron2
+
+import click
+import cv2
+import numpy as np
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
+
+
+MODEL_CONFIG_PATH = '../detectron2//keypoint_rcnn_X_101_32x8d_FPN_3x.yaml'
+MODEL_WEIGHTS_PATH = '../model_final_5ad38f.pkl'
 
 
 def get_img_paths(imgs_dir):
@@ -158,15 +163,23 @@ def predict_pose(pose_predictor, img_generator, output_path, dataset_name='detec
     print('All done!')
 
 
-if __name__ == '__main__':
-    # Init pose predictor:
-    model_config_path = './keypoint_rcnn_X_101_32x8d_FPN_3x.yaml'
-    model_weights_path = './model_final_5ad38f.pkl'
-    pose_predictor = init_pose_predictor(model_config_path, model_weights_path,
+@click.command()
+@click.argument("input-video")
+@click.option("output-path")
+def main(input_video, output_path):
+    # Initial pose predictor
+    pose_predictor = init_pose_predictor(MODEL_CONFIG_PATH, MODEL_WEIGHTS_PATH,
                                          cuda=True)
 
     # Predict poses and save the result:
     # img_generator = read_images('./images')    # read images from a directory
-    img_generator = read_video('./video.mp4')  # or get them from a video
-    output_path = './pose2d'
+    img_generator = read_video(input_video)  # or get them from a video
+    if output_path is None:
+        output_path = input_video.split("/")[-1].split(".")[0]
+    else:
+        output_path = './pose2d'
     predict_pose(pose_predictor, img_generator, output_path)
+
+
+if __name__ == '__main__':
+    main()
