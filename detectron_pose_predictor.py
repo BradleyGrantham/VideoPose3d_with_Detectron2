@@ -8,7 +8,7 @@ from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 
 
-MODEL_CONFIG_PATH = '../detectron2//keypoint_rcnn_X_101_32x8d_FPN_3x.yaml'
+MODEL_CONFIG_PATH = '../detectron2/configs/COCO-Keypoints/keypoint_rcnn_X_101_32x8d_FPN_3x.yaml'
 MODEL_WEIGHTS_PATH = '../model_final_5ad38f.pkl'
 
 
@@ -36,7 +36,7 @@ def get_resolution(filename):
                '-show_entries', 'stream=width,height', '-of', 'csv=p=0', filename]
     pipe = sp.Popen(command, stdout=sp.PIPE, bufsize=-1)
     for line in pipe.stdout:
-        w, h = line.decode().strip().split(',')
+        h, w = line.decode().strip().split(',')
         return int(w), int(h)
 
 
@@ -165,8 +165,7 @@ def predict_pose(pose_predictor, img_generator, output_path, dataset_name='detec
 
 @click.command()
 @click.argument("input-video")
-@click.option("output-path")
-def main(input_video, output_path):
+def main(input_video):
     # Initial pose predictor
     pose_predictor = init_pose_predictor(MODEL_CONFIG_PATH, MODEL_WEIGHTS_PATH,
                                          cuda=True)
@@ -174,10 +173,8 @@ def main(input_video, output_path):
     # Predict poses and save the result:
     # img_generator = read_images('./images')    # read images from a directory
     img_generator = read_video(input_video)  # or get them from a video
-    if output_path is None:
-        output_path = input_video.split("/")[-1].split(".")[0]
-    else:
-        output_path = './pose2d'
+
+    output_path = input_video.split("/")[-1].split(".")[0]
     predict_pose(pose_predictor, img_generator, output_path)
 
 
