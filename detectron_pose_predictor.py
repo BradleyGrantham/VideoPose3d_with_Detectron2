@@ -1,16 +1,28 @@
 import os
 import subprocess as sp
+import time
+from itertools import zip_longest
+
 
 import click
 import cv2
 import numpy as np
+import torch
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
-
+from detectron2.modeling import build_model
 
 MODEL_CONFIG_PATH = '../detectron2/configs/COCO-Keypoints/keypoint_rcnn_X_101_32x8d_FPN_3x.yaml'
 MODEL_WEIGHTS_PATH = '../model_final_5ad38f.pkl'
 
+SMALL_MODEL_CONFIG_PATH = '../detectron2/configs/COCO-Keypoints/keypoint_rcnn_R_50_FPN_3x.yaml'
+SMALL_MODEL_WEIGHTS_PATH = '../model_final_a6e10b.pkl'
+
+
+def grouper(n, iterable, fillvalue=None):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return zip_longest(fillvalue=fillvalue, *args)
 
 def get_img_paths(imgs_dir):
     img_paths = []
@@ -33,11 +45,11 @@ def read_images(dir_path):
 
 def get_resolution(filename):
     command = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-               '-show_entries', 'stream=width,height', '-of', 'csv=p=0', filename]
+               '-show_entries', 'stream=height,width', '-of', 'csv=p=0', filename]
     pipe = sp.Popen(command, stdout=sp.PIPE, bufsize=-1)
     for line in pipe.stdout:
         h, w = line.decode().strip().split(',')
-        return int(w), int(h)
+        return int(h), int(w)
 
 
 def read_video(filename):
@@ -50,12 +62,27 @@ def read_video(filename):
                '-vsync', '0',
                '-vcodec', 'rawvideo', '-']
 
-    pipe = sp.Popen(command, stdout=sp.PIPE, bufsize=-1)
+    pipe = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE, bufsize=-1)
     while True:
         data = pipe.stdout.read(w * h * 3)
         if not data:
             break
         yield np.frombuffer(data, dtype='uint8').reshape((h, w, 3))
+
+
+def read_video_v2(filename):
+    cap = cv2.VideoCapture(filename)
+
+    frames = []
+    while True:
+        ret, frame = cap.read()
+        if ret:
+            frames.append({"image": torch.from_numpy(np.moveaxis(frame, -1, 0))})
+        else:
+            break
+    cap.release()
+
+    return frames
 
 
 def init_pose_predictor(config_path, weights_path, cuda=True):
@@ -65,16 +92,19 @@ def init_pose_predictor(config_path, weights_path, cuda=True):
     cfg.MODEL.WEIGHTS = weights_path
     if cuda == False:
         cfg.MODEL.DEVICE = 'cpu'
-    predictor = DefaultPredictor(cfg)
+    model = build_model(cfg)
+    model.eval()
 
-    return predictor
+    return model
 
 
 def encode_for_videpose3d(boxes, keypoints, resolution, dataset_name):
     # Generate metadata:
     metadata = {}
     metadata['layout_name'] = 'coco'
+    # bgnote - number of keypoints
     metadata['num_joints'] = 17
+    # bgnote - symmetrical keypoints (1,2 could be left hand, right hand for example)
     metadata['keypoints_symmetry'] = [[1, 3, 5, 7, 9, 11, 13, 15],
                                       [2, 4, 6, 8, 10, 12, 14, 16]]
     metadata['video_metadata'] = {dataset_name: resolution}
@@ -84,6 +114,7 @@ def encode_for_videpose3d(boxes, keypoints, resolution, dataset_name):
     for i in range(len(boxes)):
         if len(boxes[i]) == 0 or len(keypoints[i]) == 0:
             # No bbox/keypoints detected for this frame -> will be interpolated
+            # bgnote - i feel we did this in the last step but shrug
             prepared_boxes.append(
                 np.full(4, np.nan, dtype=np.float32))  # 4 bounding box coordinates
             prepared_keypoints.append(
@@ -91,6 +122,7 @@ def encode_for_videpose3d(boxes, keypoints, resolution, dataset_name):
             continue
 
         prepared_boxes.append(boxes[i])
+        # bgnote - i guess only :2 as we only need an x and y coord for each keypoint
         prepared_keypoints.append(keypoints[i][:, :2])
 
     boxes = np.array(prepared_boxes, dtype=np.float32)
@@ -130,9 +162,13 @@ def predict_pose(pose_predictor, img_generator, output_path, dataset_name='detec
     resolution = None
 
     # Predict poses:
+    pose_outputs = []
     for i, img in enumerate(img_generator):
-        pose_output = pose_predictor(img)
+        with torch.no_grad():
+            pose_outputs += pose_predictor([img])
+        print('{}      '.format(i + 1), end='\r')
 
+    for pose_output in pose_outputs:
         if len(pose_output["instances"].pred_boxes.tensor) > 0:
             cls_boxes = pose_output["instances"].pred_boxes.tensor[0].cpu().numpy()
             cls_keyps = pose_output["instances"].pred_keypoints[0].cpu().numpy()
@@ -145,13 +181,11 @@ def predict_pose(pose_predictor, img_generator, output_path, dataset_name='detec
         keypoints.append(cls_keyps)
 
         # Set metadata:
-        if resolution is None:
-            resolution = {
-                'w': img.shape[1],
-                'h': img.shape[0],
-            }
-
-        print('{}      '.format(i + 1), end='\r')
+    if resolution is None:
+        resolution = {
+            'w': img_generator[0]["image"].shape[1],
+            'h': img_generator[0]["image"].shape[0],
+        }
 
     # Encode data in VidePose3d format and save it as a compressed numpy (.npz):
     data, metadata = encode_for_videpose3d(boxes, keypoints, resolution, dataset_name)
@@ -165,17 +199,22 @@ def predict_pose(pose_predictor, img_generator, output_path, dataset_name='detec
 
 @click.command()
 @click.argument("input-video")
-def main(input_video):
+@click.option("--output-path")
+def main(input_video, output_path):
+    start = time.time()
     # Initial pose predictor
     pose_predictor = init_pose_predictor(MODEL_CONFIG_PATH, MODEL_WEIGHTS_PATH,
                                          cuda=True)
 
     # Predict poses and save the result:
     # img_generator = read_images('./images')    # read images from a directory
-    img_generator = read_video(input_video)  # or get them from a video
+    img_generator = read_video_v2(input_video)  # or get them from a video
 
-    output_path = input_video.split("/")[-1].split(".")[0]
+    if output_path is None:
+        output_path = input_video.split("/")[-1].split(".")[0]
+
     predict_pose(pose_predictor, img_generator, output_path)
+    print(f"Time taken: {time.time() - start}")
 
 
 if __name__ == '__main__':
