@@ -234,8 +234,12 @@ function processData(data, tt) {
             return color(d.id);
         })
         .attr('opacity', 1)
-        .attr('cx', posPointX)
-        .attr('cy', posPointY);
+        .attr('cx', function (d) {
+            return d.projected.x
+        })
+        .attr('cy', function (d) {
+            return d.projected.y
+        });
 
     points.exit().remove();
 
@@ -327,6 +331,8 @@ function init() {
         grid3dy2(yGrid2),
         line3d(line_data),
     ];
+    cnt++;
+    console.log(cnt);
     processData(data, 1000);
 }
 
