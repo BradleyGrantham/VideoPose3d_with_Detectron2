@@ -3,97 +3,9 @@ var origin = [$(window).width() / 2, $(window).height() / 1.4], j = 10, scale = 
     yGrid1 = [], yGrid2 = [], line_data = [], beta = 0, alpha = 0, key = function (d) {
         return d.id;
     }, startAngle = 0;
-var svg = d3.select('svg').call(d3.drag().on('drag', dragged).on('start', dragStart).on('end', dragEnd)).append('g');
-var color = d3.scaleOrdinal(d3.schemeCategory20);
+var svg = d3.select('svg.main').append('g').attr("class", "stickman");
+var cnt2;
 var mx, my, mouseX, mouseY;
-
-const golf_swing = [
-    [
-      -3.211162402283661e-05,
-      7.152739999582991e-05,
-      -0.8912246823310852
-    ],
-    [
-      0.02407112531363976,
-      0.09900563210248947,
-      -0.8931843042373657
-    ],
-    [
-      0.04991847276687628,
-      0.10360199213027954,
-      -0.4480474293231964
-    ],
-    [
-      0.0078020691871643144,
-      0.09741427004337311,
-      -0.014388442039489744
-    ],
-    [
-      -0.024060048162937064,
-      -0.09900061041116714,
-      -0.8891841173171997
-    ],
-    [
-      -0.02230921387672419,
-      -0.061637260019779205,
-      -0.4462723135948181
-    ],
-    [
-      -0.09529447555541992,
-      -0.02673597447574138,
-      -0.014570891857147229
-    ],
-    [
-      -0.05386868119239793,
-      0.03230265900492668,
-      -1.122077465057373
-    ],
-    [
-      -0.06931942701339705,
-      0.09160071611404419,
-      -1.3659696578979492
-    ],
-    [
-      0.008772790431976502,
-      0.1012304350733757,
-      -1.4406342506408691
-    ],
-    [
-      -0.06401711702346782,
-      0.13830940425395966,
-      -1.5252538919448853
-    ],
-    [
-      -0.10293233394622786,
-      -0.036846190690994256,
-      -1.338482141494751
-    ],
-    [
-      0.025293141603469987,
-      -0.2650742530822754,
-      -1.2616517543792725
-    ],
-    [
-      0.1646957993507387,
-      -0.1577398180961609,
-      -1.4385120868682861
-    ],
-    [
-      -0.008822530508041208,
-      0.18670329451560974,
-      -1.3169260025024414
-    ],
-    [
-      0.2024367302656175,
-      0.16720521450042725,
-      -1.1961545944213867
-    ],
-    [
-      0.3134011030197145,
-      0.01506897807121275,
-      -1.2654986381530762
-    ]
-  ];
 
 const parents = [-1, 0, 1, 2, 0, 4, 5, 0, 7, 8, 9, 8, 11, 12, 8, 14, 15];
 
@@ -153,7 +65,7 @@ var line3d = d3._3d()
     .rotateX(-startAngle)
     .scale(scale * 10);
 
-function processData(data, tt) {
+function processData(data) {
 
     /* ----------- GRID ----------- */
 
@@ -225,13 +137,13 @@ function processData(data, tt) {
             return d.projected.y
         })
         .merge(points)
-        .transition().duration(tt)
+        // .transition().duration(10)
         .attr('r', 3)
         .attr('stroke', function (d) {
-            return d3.color(color(d.id)).darker(3);
+            return d3.color('red');
         })
         .attr('fill', function (d) {
-            return color(d.id);
+            return d3.color('red');
         })
         .attr('opacity', 1)
         .attr('cx', function (d) {
@@ -253,6 +165,7 @@ function processData(data, tt) {
         .attr('class', '_3d')
         .attr('stroke-width', 1)
         .merge(lines)
+        // .transition().duration(10)
         .attr('fill', function (d) {
             return d3.color(d[0].colour);
         })
@@ -278,7 +191,7 @@ function processData(data, tt) {
 }
 
 
-function init() {
+function drawStickman() {
     var cnt = 0;
     xGrid = [], yGrid1 = [], yGrid2 = [], keypoints = [], yLine = [];
     for (var z = -j; z < j; z++) {
@@ -290,7 +203,8 @@ function init() {
         }
     }
 
-    golf_swing.forEach((element) => {
+    console.log(cnt2);
+    golf_swing[cnt2].forEach((element) => {
         keypoints.push({
             x: element[0],
             y: element[2],
@@ -300,11 +214,11 @@ function init() {
     });
 
     line_data = [];
-    for (const [index, start_point] of golf_swing.entries()) {
+    for (const [index, start_point] of golf_swing[cnt2].entries()) {
         var parent = parents[index];
         if (parent !== -1) {
-            var end_point = golf_swing[parent];
-            var line_colour = (joints_left.includes(index) || joints_left.includes(parent)) ? 'red' : 'black';
+            var end_point = golf_swing[cnt2][parent];
+            var line_colour = (joints_left.includes(index) || joints_left.includes(parent)) ? 'blue' : 'black';
             line_data.push(
                 [
                     {
@@ -331,9 +245,8 @@ function init() {
         grid3dy2(yGrid2),
         line3d(line_data),
     ];
-    cnt++;
-    console.log(cnt);
-    processData(data, 1000);
+    cnt2++;
+    processData(data);
 }
 
 function dragStart() {
@@ -353,7 +266,7 @@ function dragged() {
         grid3dy2.rotateY(beta + startAngle).rotateX(alpha - startAngle)(yGrid2),
         line3d.rotateY(beta + startAngle).rotateX(alpha - startAngle)(line_data),
     ];
-    processData(data, 0);
+    processData(data);
 }
 
 function dragEnd() {
@@ -361,6 +274,48 @@ function dragEnd() {
     mouseY = d3.event.y - my + mouseY;
 }
 
-d3.selectAll('button').on('click', init);
+//mimic python range() method
+let range = n => Array.from(Array(n).keys());
 
-init();
+var golf_swing = [];
+$.getJSON('data.json', function(data) {
+    cnt2 = 0;
+    golf_swing = data;
+
+    sliderInit(data.length);
+
+    // drag stick man
+    d3.select("g.stickman").call(d3.drag().on('drag', dragged).on('start', dragStart).on('end', dragEnd));
+
+    drawStickman();
+
+});
+
+
+function sliderInit(sliderSteps) {
+    var sliderStep = d3
+    .sliderBottom()
+    .min(d3.min(range(sliderStep)))
+    .max(d3.max(range(sliderSteps)))
+    .width(300)
+    .tickFormat('')
+    // .ticks(5)
+    .step(1)
+    .default(0)
+    .on('onchange', val => {
+      cnt2 = val;
+      drawStickman();
+    });
+
+    var slider = d3
+    .select('div#slider-step')
+    .append('svg')
+    .attr('class', 'slider')
+    .attr('width', 500)
+    .attr('height', 100)
+    .append('g')
+    .attr('transform', 'translate(30,30)');
+
+    // drag slider
+    slider.call(sliderStep);
+}
