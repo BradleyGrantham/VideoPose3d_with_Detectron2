@@ -53,24 +53,6 @@ def get_resolution(filename):
 
 
 def read_video(filename):
-    h, w = get_resolution(filename)
-
-    command = ['ffmpeg',
-               '-i', filename,
-               '-f', 'image2pipe',
-               '-pix_fmt', 'bgr24',
-               '-vsync', '0',
-               '-vcodec', 'rawvideo', '-']
-
-    pipe = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE, bufsize=-1)
-    while True:
-        data = pipe.stdout.read(w * h * 3)
-        if not data:
-            break
-        yield np.frombuffer(data, dtype='uint8').reshape((h, w, 3))
-
-
-def read_video_v2(filename):
     cap = cv2.VideoCapture(filename)
 
     frames = []
@@ -208,7 +190,7 @@ def main(input_video, output_path):
 
     # Predict poses and save the result:
     # img_generator = read_images('./images')    # read images from a directory
-    img_generator = read_video_v2(input_video)  # or get them from a video
+    img_generator = read_video(input_video)  # or get them from a video
 
     if output_path is None:
         output_path = input_video.split("/")[-1].split(".")[0]
