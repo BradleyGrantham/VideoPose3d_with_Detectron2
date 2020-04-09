@@ -6,23 +6,29 @@ from itertools import zip_longest
 
 import click
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2.modeling import build_model
 
-MODEL_CONFIG_PATH = '../detectron2/configs/COCO-Keypoints/keypoint_rcnn_X_101_32x8d_FPN_3x.yaml'
-MODEL_WEIGHTS_PATH = '../model_final_5ad38f.pkl'
+import swing3d.constants
+import swing3d.utils
 
-SMALL_MODEL_CONFIG_PATH = '../detectron2/configs/COCO-Keypoints/keypoint_rcnn_R_50_FPN_3x.yaml'
-SMALL_MODEL_WEIGHTS_PATH = '../model_final_a6e10b.pkl'
+
+MODEL_CONFIG_PATH = '../../detectron2/configs/COCO-Keypoints/keypoint_rcnn_X_101_32x8d_FPN_3x.yaml'
+MODEL_WEIGHTS_PATH = '../../model_final_5ad38f.pkl'
+
+SMALL_MODEL_CONFIG_PATH = '../../detectron2/configs/COCO-Keypoints/keypoint_rcnn_R_50_FPN_3x.yaml'
+SMALL_MODEL_WEIGHTS_PATH = '../../model_final_a6e10b.pkl'
 
 
 def grouper(n, iterable, fillvalue=None):
     "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
     args = [iter(iterable)] * n
     return zip_longest(fillvalue=fillvalue, *args)
+
 
 def get_img_paths(imgs_dir):
     img_paths = []
@@ -53,6 +59,24 @@ def get_resolution(filename):
 
 
 def read_video(filename):
+    h, w = get_resolution(filename)
+
+    command = ['ffmpeg',
+               '-i', filename,
+               '-f', 'image2pipe',
+               '-pix_fmt', 'bgr24',
+               '-vsync', '0',
+               '-vcodec', 'rawvideo', '-']
+
+    pipe = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE, bufsize=-1)
+    while True:
+        data = pipe.stdout.read(w * h * 3)
+        if not data:
+            break
+        yield np.frombuffer(data, dtype='uint8').reshape((h, w, 3))
+
+
+def read_video_v2(filename):
     cap = cv2.VideoCapture(filename)
 
     frames = []
@@ -74,10 +98,10 @@ def init_pose_predictor(config_path, weights_path, cuda=True):
     cfg.MODEL.WEIGHTS = weights_path
     if cuda == False:
         cfg.MODEL.DEVICE = 'cpu'
-    model = build_model(cfg)
-    model.eval()
+    predictor = DefaultPredictor(cfg)
 
-    return model
+    return predictor
+
 
 
 def encode_for_videpose3d(boxes, keypoints, resolution, dataset_name):
@@ -144,13 +168,9 @@ def predict_pose(pose_predictor, img_generator, output_path, dataset_name='detec
     resolution = None
 
     # Predict poses:
-    pose_outputs = []
     for i, img in enumerate(img_generator):
-        with torch.no_grad():
-            pose_outputs += pose_predictor([img])
-        print('{}      '.format(i + 1), end='\r')
+        pose_output = pose_predictor(img)
 
-    for pose_output in pose_outputs:
         if len(pose_output["instances"].pred_boxes.tensor) > 0:
             cls_boxes = pose_output["instances"].pred_boxes.tensor[0].cpu().numpy()
             cls_keyps = pose_output["instances"].pred_keypoints[0].cpu().numpy()
@@ -163,11 +183,13 @@ def predict_pose(pose_predictor, img_generator, output_path, dataset_name='detec
         keypoints.append(cls_keyps)
 
         # Set metadata:
-    if resolution is None:
-        resolution = {
-            'w': img_generator[0]["image"].shape[1],
-            'h': img_generator[0]["image"].shape[0],
-        }
+        if resolution is None:
+            resolution = {
+                'w': img.shape[1],
+                'h': img.shape[0],
+            }
+
+        print('{}      '.format(i + 1), end='\r')
 
     # Encode data in VidePose3d format and save it as a compressed numpy (.npz):
     data, metadata = encode_for_videpose3d(boxes, keypoints, resolution, dataset_name)
@@ -176,13 +198,16 @@ def predict_pose(pose_predictor, img_generator, output_path, dataset_name='detec
     output[dataset_name]['custom'] = [data[0]['keypoints'].astype('float32')]
     np.savez_compressed(output_path, positions_2d=output, metadata=metadata)
 
+    return output, metadata
+
     print('All done!')
 
 
 @click.command()
 @click.argument("input-video")
 @click.option("--output-path")
-def main(input_video, output_path):
+@click.option("--debug/--not-debug", )
+def main(input_video, output_path, debug):
     start = time.time()
     # Initial pose predictor
     pose_predictor = init_pose_predictor(MODEL_CONFIG_PATH, MODEL_WEIGHTS_PATH,
@@ -190,12 +215,23 @@ def main(input_video, output_path):
 
     # Predict poses and save the result:
     # img_generator = read_images('./images')    # read images from a directory
-    img_generator = read_video(input_video)  # or get them from a video
+    imgs = read_video(input_video)  # or get them from a video
+
+    if debug:
+        imgs = [[img for img in imgs][0]]
 
     if output_path is None:
         output_path = input_video.split("/")[-1].split(".")[0]
 
-    predict_pose(pose_predictor, img_generator, output_path)
+    keypoints, md = predict_pose(pose_predictor, imgs, output_path)
+
+    if debug:
+        img_to_plot = imgs[0]
+        plt.imshow(img_to_plot)
+        kps_to_plot = np.squeeze(keypoints["detectron2"]["custom"][0])
+        plt.scatter(kps_to_plot[:, 0], kps_to_plot[:, 1])
+        plt.savefig("debug.png")
+
     print(f"Time taken: {time.time() - start}")
 
 
