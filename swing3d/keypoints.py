@@ -49,48 +49,6 @@ def read_images(dir_path):
         yield cv2.imread(path)
 
 
-def get_resolution(filename):
-    command = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-               '-show_entries', 'stream=height,width', '-of', 'csv=p=0', filename]
-    pipe = sp.Popen(command, stdout=sp.PIPE, bufsize=-1)
-    for line in pipe.stdout:
-        h, w = line.decode().strip().split(',')
-        return int(h), int(w)
-
-
-def read_video(filename):
-    h, w = get_resolution(filename)
-
-    command = ['ffmpeg',
-               '-i', filename,
-               '-f', 'image2pipe',
-               '-pix_fmt', 'bgr24',
-               '-vsync', '0',
-               '-vcodec', 'rawvideo', '-']
-
-    pipe = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE, bufsize=-1)
-    while True:
-        data = pipe.stdout.read(w * h * 3)
-        if not data:
-            break
-        yield np.frombuffer(data, dtype='uint8').reshape((h, w, 3))
-
-
-def read_video_v2(filename):
-    cap = cv2.VideoCapture(filename)
-
-    frames = []
-    while True:
-        ret, frame = cap.read()
-        if ret:
-            frames.append({"image": torch.from_numpy(np.moveaxis(frame, -1, 0))})
-        else:
-            break
-    cap.release()
-
-    return frames
-
-
 def init_pose_predictor(config_path, weights_path, cuda=True):
     cfg = get_cfg()
     cfg.merge_from_file(config_path)
@@ -101,7 +59,6 @@ def init_pose_predictor(config_path, weights_path, cuda=True):
     predictor = DefaultPredictor(cfg)
 
     return predictor
-
 
 
 def encode_for_videpose3d(boxes, keypoints, resolution, dataset_name):
@@ -215,10 +172,12 @@ def main(input_video, output_path, debug):
 
     # Predict poses and save the result:
     # img_generator = read_images('./images')    # read images from a directory
-    imgs = read_video(input_video)  # or get them from a video
 
     if debug:
-        imgs = [[img for img in imgs][0]]
+        imgs = cv2.imread("../assets/debug_frame.png")
+        imgs = [cv2.cvtColor(imgs, cv2.COLOR_BGR2RGB)]
+    else:
+        imgs = swing3d.utils.read_video(input_video)  # or get them from a video
 
     if output_path is None:
         output_path = input_video.split("/")[-1].split(".")[0]
@@ -230,7 +189,7 @@ def main(input_video, output_path, debug):
         plt.imshow(img_to_plot)
         kps_to_plot = np.squeeze(keypoints["detectron2"]["custom"][0])
         plt.scatter(kps_to_plot[:, 0], kps_to_plot[:, 1])
-        plt.savefig("debug.png")
+        plt.savefig("../assets/debug_output.png")
 
     print(f"Time taken: {time.time() - start}")
 
