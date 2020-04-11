@@ -107,7 +107,7 @@ def encode_for_videpose3d(boxes, keypoints, resolution, dataset_name):
     )
 
 
-def predict_pose(pose_predictor, img_generator, output_path, dataset_name="detectron2"):
+def predict_pose(pose_predictor, img_generator, dataset_name="detectron2"):
     """
         pose_predictor: The detectron's pose predictor
         img_generator:  Images source
@@ -170,7 +170,7 @@ def main(input_video, output_path, small_model, debug):
         model_config = swing3d.constants.MODEL_CONFIG_PATH
         model_weights = swing3d.constants.MODEL_WEIGHTS_PATH
 
-    # Initial pose predictor
+    # Initialise pose predictor
     pose_predictor = init_pose_predictor(
         model_config,
         model_weights,
@@ -178,8 +178,6 @@ def main(input_video, output_path, small_model, debug):
     )
 
     # Predict poses and save the result:
-    # img_generator = read_images('./images')    # read images from a directory
-
     if debug:
         imgs = cv2.imread(swing3d.constants.DEBUG_IMAGE_PATH)
         imgs = [cv2.cvtColor(imgs, cv2.COLOR_BGR2RGB)]
@@ -189,7 +187,7 @@ def main(input_video, output_path, small_model, debug):
     if output_path is None:
         output_path = input_video.split("/")[-1].split(".")[0]
 
-    keypoints, md = predict_pose(pose_predictor, imgs, output_path)
+    keypoints, md = predict_pose(pose_predictor, imgs)
 
     if debug:
         swing3d.utils.plot_image_and_keypoints(

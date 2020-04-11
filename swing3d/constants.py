@@ -26,3 +26,19 @@ CAMERA_PARAMS = {
 }
 
 NUM_JOINTS = 17
+
+JOINTS_LEFT = [4, 5, 6, 11, 12, 13],
+JOINTS_RIGHT = [1, 2, 3, 14, 15, 16]
+
+# POSE3D CLI ARGUMENTS
+SUBJECTS_TRAIN = "S1,S5,S6,S7,S8"
+SUBJECTS_TEST = "S9,S11"
+SUBJECTS_UNLABELLED = ""
+
+ARCHITECTURE = [3, 3, 3, 3, 3]
+DROPOUT = 0.25
+CAUSAL = False
+CHANNELS = 1024
+DENSE = False
+
+CHECKPOINT = "../../VideoPose3D/checkpoint/pretrained_h36m_detectron_coco.bin"
