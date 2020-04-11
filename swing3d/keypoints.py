@@ -147,11 +147,12 @@ def predict_pose(pose_predictor, img_generator, output_path, dataset_name="detec
     output = {}
     output[dataset_name] = {}
     output[dataset_name]["custom"] = [data[0]["keypoints"].astype("float32")]
-    np.savez_compressed(output_path, positions_2d=output, metadata=metadata)
 
     return output, metadata
 
-    print("All done!")
+
+def save_keypoints(output, metadata, output_path):
+    np.savez_compressed(output_path, positions_2d=output, metadata=metadata)
 
 
 @click.command()
@@ -187,6 +188,8 @@ def main(input_video, output_path, debug):
             np.squeeze(keypoints["detectron2"]["custom"][0]),
             output_path=swing3d.constants.DEBUG_OUTPUT_PATH,
         )
+    else:
+        save_keypoints(keypoints, md, output_path)
 
     print(f"Time taken: {time.time() - start}")
 
