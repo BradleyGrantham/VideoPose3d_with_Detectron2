@@ -158,13 +158,22 @@ def save_keypoints(output, metadata, output_path):
 @click.command()
 @click.argument("input-video")
 @click.option("--output-path")
+@click.option("--small-model/--large-model", default=False, help="Default is large model.")
 @click.option("--debug/--not-debug",)
-def main(input_video, output_path, debug):
+def main(input_video, output_path, small_model, debug):
     start = time.time()
+
+    if small_model:
+        model_config = swing3d.constants.SMALL_MODEL_CONFIG_PATH
+        model_weights = swing3d.constants.SMALL_MODEL_WEIGHTS_PATH
+    else:
+        model_config = swing3d.constants.MODEL_CONFIG_PATH
+        model_weights = swing3d.constants.MODEL_WEIGHTS_PATH
+
     # Initial pose predictor
     pose_predictor = init_pose_predictor(
-        swing3d.constants.MODEL_CONFIG_PATH,
-        swing3d.constants.MODEL_WEIGHTS_PATH,
+        model_config,
+        model_weights,
         cuda=True,
     )
 
