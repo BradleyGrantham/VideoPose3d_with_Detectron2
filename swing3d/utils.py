@@ -1,6 +1,7 @@
 from itertools import zip_longest
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -26,3 +27,12 @@ def read_video(filename):
     cap.release()
 
     return frames
+
+
+def plot_image_and_keypoints(image, keypoints, output_path=None):
+    plt.imshow(image)
+    plt.scatter(keypoints[:, 0], keypoints[:, 1])
+    if output_path is not None:
+        plt.savefig(output_path)
+    else:
+        plt.show()
