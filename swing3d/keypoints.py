@@ -7,6 +7,7 @@ import numpy as np
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2.modeling import build_model
+from loguru import logger
 
 import swing3d.constants
 import swing3d.utils
@@ -90,9 +91,9 @@ def encode_for_videpose3d(boxes, keypoints, resolution, dataset_name):
                 indices, indices[mask], keypoints[mask, i, j]
             )
 
-    print("{} total frames processed".format(len(boxes)))
-    print("{} frames were interpolated".format(np.sum(~mask)))
-    print("----------")
+    logger.info(f"{len(boxes)} total frames processed")
+    logger.info(f"{np.sum(~mask)} frames were interpolated")
+    logger.info("----------")
 
     return (
         [
@@ -144,15 +145,15 @@ def predict_pose(pose_predictor, img_generator, dataset_name="detectron2"):
 
     # Encode data in VidePose3d format and save it as a compressed numpy (.npz):
     data, metadata = encode_for_videpose3d(boxes, keypoints, resolution, dataset_name)
-    output = {}
-    output[dataset_name] = {}
-    output[dataset_name]["custom"] = [data[0]["keypoints"].astype("float32")]
 
-    return output, metadata
+    keypoints = data[0]["keypoints"].astype("float32")
+    resolution = (resolution["h"], resolution["w"])
+
+    return keypoints, resolution
 
 
-def save_keypoints(output, metadata, output_path):
-    np.savez_compressed(output_path, positions_2d=output, metadata=metadata)
+def save_keypoints(output, resolution, output_path):
+    np.savez_compressed(output_path, keypoints=output, resolution=resolution)
 
 
 @click.command()
@@ -179,6 +180,7 @@ def main(input_video, output_path, small_model, debug):
 
     # Predict poses and save the result:
     if debug:
+        swing3d.utils.print_debug_banner()
         imgs = cv2.imread(swing3d.constants.DEBUG_IMAGE_PATH)
         imgs = [cv2.cvtColor(imgs, cv2.COLOR_BGR2RGB)]
     else:
@@ -187,18 +189,18 @@ def main(input_video, output_path, small_model, debug):
     if output_path is None:
         output_path = input_video.split("/")[-1].split(".")[0]
 
-    keypoints, md = predict_pose(pose_predictor, imgs)
+    keypoints, resolution = predict_pose(pose_predictor, imgs)
 
     if debug:
         swing3d.utils.plot_image_and_keypoints(
             imgs[0],
-            np.squeeze(keypoints["detectron2"]["custom"][0]),
+            np.squeeze(keypoints),
             output_path=swing3d.constants.DEBUG_OUTPUT_PATH,
         )
     else:
-        save_keypoints(keypoints, md, output_path)
+        save_keypoints(keypoints, resolution, output_path)
 
-    print(f"Time taken: {time.time() - start}")
+    logger.info(f"Time taken: {time.time() - start}")
 
 
 if __name__ == "__main__":

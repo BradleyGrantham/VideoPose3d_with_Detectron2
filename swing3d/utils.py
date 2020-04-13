@@ -4,6 +4,9 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from loguru import logger
+
+import swing3d.constants
 
 
 def grouper(n, iterable):
@@ -53,3 +56,8 @@ def rotate_about_y(predictions, theta):
          [0, 1, 0], [np.sin(theta), 0, np.cos(theta)]])
 
     return np.matmul(predictions, rot_matrix)
+
+
+def print_debug_banner():
+    for l in swing3d.constants.DEBUG_BANNER:
+        logger.info(l)
