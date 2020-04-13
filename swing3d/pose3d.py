@@ -1,10 +1,13 @@
+import json
+from typing import Optional, Union
+
 import numpy as np
 import torch
 import torch.nn as nn
+from loguru import logger
 
 import swing3d.constants
-
-KEYPOINTS_FILEPATH = "SOME_FILEPATH"
+import swing3d.utils
 
 
 class TemporalModelBase(nn.Module):
@@ -12,13 +15,21 @@ class TemporalModelBase(nn.Module):
     Do not instantiate this class.
     """
 
-    def __init__(self, num_joints_in, in_features, num_joints_out,
-                 filter_widths, causal, dropout, channels):
+    def __init__(
+        self,
+        num_joints_in,
+        in_features,
+        num_joints_out,
+        filter_widths,
+        causal,
+        dropout,
+        channels,
+    ):
         super().__init__()
 
         # Validate input
         for fw in filter_widths:
-            assert fw % 2 != 0, 'Only odd filter widths are supported'
+            assert fw % 2 != 0, "Only odd filter widths are supported"
 
         self.num_joints_in = num_joints_in
         self.in_features = in_features
@@ -82,8 +93,17 @@ class TemporalModel(TemporalModelBase):
     This implementation can be used for all use-cases.
     """
 
-    def __init__(self, num_joints_in, in_features, num_joints_out,
-                 filter_widths, causal=False, dropout=0.25, channels=1024, dense=False):
+    def __init__(
+        self,
+        num_joints_in,
+        in_features,
+        num_joints_out,
+        filter_widths,
+        causal=False,
+        dropout=0.25,
+        channels=1024,
+        dense=False,
+    ):
         """
         Initialize this model.
 
@@ -97,11 +117,19 @@ class TemporalModel(TemporalModelBase):
         channels -- number of convolution channels
         dense -- use regular dense convolutions instead of dilated convolutions (ablation experiment)
         """
-        super().__init__(num_joints_in, in_features, num_joints_out, filter_widths,
-                         causal, dropout, channels)
+        super().__init__(
+            num_joints_in,
+            in_features,
+            num_joints_out,
+            filter_widths,
+            causal,
+            dropout,
+            channels,
+        )
 
-        self.expand_conv = nn.Conv1d(num_joints_in * in_features, channels,
-                                     filter_widths[0], bias=False)
+        self.expand_conv = nn.Conv1d(
+            num_joints_in * in_features, channels, filter_widths[0], bias=False
+        )
 
         layers_conv = []
         layers_bn = []
@@ -111,13 +139,18 @@ class TemporalModel(TemporalModelBase):
         for i in range(1, len(filter_widths)):
             self.pad.append((filter_widths[i] - 1) * next_dilation // 2)
             self.causal_shift.append(
-                (filter_widths[i] // 2 * next_dilation) if causal else 0)
+                (filter_widths[i] // 2 * next_dilation) if causal else 0
+            )
 
-            layers_conv.append(nn.Conv1d(channels, channels,
-                                         filter_widths[i] if not dense else (
-                                                     2 * self.pad[-1] + 1),
-                                         dilation=next_dilation if not dense else 1,
-                                         bias=False))
+            layers_conv.append(
+                nn.Conv1d(
+                    channels,
+                    channels,
+                    filter_widths[i] if not dense else (2 * self.pad[-1] + 1),
+                    dilation=next_dilation if not dense else 1,
+                    bias=False,
+                )
+            )
             layers_bn.append(nn.BatchNorm1d(channels, momentum=0.1))
             layers_conv.append(nn.Conv1d(channels, channels, 1, dilation=1, bias=False))
             layers_bn.append(nn.BatchNorm1d(channels, momentum=0.1))
@@ -133,32 +166,39 @@ class TemporalModel(TemporalModelBase):
         for i in range(len(self.pad) - 1):
             pad = self.pad[i + 1]
             shift = self.causal_shift[i + 1]
-            res = x[:, :, pad + shift: x.shape[2] - pad + shift]
+            res = x[:, :, pad + shift : x.shape[2] - pad + shift]
 
             x = self.drop(self.relu(self.layers_bn[2 * i](self.layers_conv[2 * i](x))))
             x = res + self.drop(
-                self.relu(self.layers_bn[2 * i + 1](self.layers_conv[2 * i + 1](x))))
+                self.relu(self.layers_bn[2 * i + 1](self.layers_conv[2 * i + 1](x)))
+            )
 
         x = self.shrink(x)
         return x
 
 
 def normalize_screen_coordinates(X, w, h):
+    logger.info("Normalizing screen coordinates")
     assert X.shape[-1] == 2
 
     # Normalize so that [0, w] is mapped to [-1, 1], while preserving the aspect ratio
     return X / w * 2 - [1, h / w]
 
 
-def evaluate(batch_2d, model):
+def evaluate(
+    inputs: Union[np.ndarray, torch.Tensor], model: TemporalModel
+) -> np.ndarray:
     with torch.no_grad():
         model.eval()
-        inputs_2d = torch.from_numpy(batch_2d.astype('float32'))
-        if torch.cuda.is_available():
-            inputs_2d = inputs_2d.cuda()
+        if isinstance(inputs, np.ndarray):
+            inputs_torch = torch.from_numpy(inputs.astype("float32"))
+        else:
+            inputs_torch = inputs
 
-        # Positional model
-        predicted_3d_pos = model(inputs_2d)
+        if torch.cuda.is_available():
+            inputs_torch = inputs_torch.cuda()
+
+        predicted_3d_pos = model(inputs_torch)
 
     return predicted_3d_pos.squeeze(0).cpu().numpy()
 
@@ -195,6 +235,7 @@ def wrap(func, *args, unsqueeze=False):
     else:
         return result
 
+
 def qrot(q, v):
     """
     Rotate vector(s) v about the rotation described by quaternion(s) q.
@@ -207,29 +248,102 @@ def qrot(q, v):
     assert q.shape[:-1] == v.shape[:-1]
 
     qvec = q[..., 1:]
-    uv = torch.cross(qvec.double(), v.double(), dim=len(q.shape)-1)
-    uuv = torch.cross(qvec.double(), uv.double(), dim=len(q.shape)-1)
-    return (v + 2 * (q[..., :1] * uv + uuv))
+    uv = torch.cross(qvec.double(), v.double(), dim=len(q.shape) - 1)
+    uuv = torch.cross(qvec.double(), uv.double(), dim=len(q.shape) - 1)
+    return v + 2 * (q[..., :1] * uv + uuv)
 
 
 def camera_to_world(X, R, t):
+    logger.info(f"Performing camera to world with orientation of {R}")
     return wrap(qrot, np.tile(R, (*X.shape[:-1], 1)), X) + t
 
 
-if __name__ == "__main__":
-    print('Loading 2D detections...')
-    keypoints = np.load("SOME_FILEPATH", allow_pickle=True)
-    keypoints_metadata = keypoints['metadata'].item()
-    keypoints_symmetry = keypoints_metadata['keypoints_symmetry']
-    kps_left, kps_right = list(keypoints_symmetry[0]), list(keypoints_symmetry[1])
-    joints_left, joints_right = [4, 5, 6, 11, 12, 13], [1, 2, 3, 14, 15, 16]
-    keypoints = keypoints['positions_2d'].item()
+def calculate_padding(model: TemporalModel) -> int:
+    receptive_field = model.receptive_field()
+    logger.info(f"Receptive field: {receptive_field} frames")
+    pad = (receptive_field - 1) // 2  # Padding on each side
+    logger.info(f"Padding: {pad} frames")
+    return pad
 
-    for subject in keypoints.keys():
-        for action in keypoints[subject]:
-            for cam_idx, kps in enumerate(keypoints[subject][action]):
-                # Normalize camera frame
-                kps[..., :2] = normalize_screen_coordinates(kps[..., :2],
-                                                            w=cam['res_w'],
-                                                            h=cam['res_h'])
-                keypoints[subject][action][cam_idx] = kps
+
+def pad_frames(keypoints: np.ndarray, padding: int) -> np.ndarray:
+    logger.info(f"Padding first axis with {padding} frames")
+    return np.expand_dims(
+        np.pad(keypoints, ((padding, padding), (0, 0), (0, 0)), "edge"), axis=0
+    )
+
+
+def load_model(num_joints_in: int, in_features: int) -> TemporalModel:
+    logger.info(
+        f"Initialising temporal model with num_joints_in={num_joints_in} and in_features={in_features}"
+    )
+    model_pos = swing3d.pose3d.TemporalModel(
+        num_joints_in=num_joints_in,
+        in_features=in_features,
+        num_joints_out=swing3d.constants.NUM_JOINTS,
+        filter_widths=swing3d.constants.ARCHITECTURE,
+        causal=swing3d.constants.CAUSAL,
+        dropout=swing3d.constants.DROPOUT,
+        channels=swing3d.constants.CHANNELS,
+        dense=swing3d.constants.DENSE,
+    )
+
+    model_params = 0
+    for parameter in model_pos.parameters():
+        model_params += parameter.numel()
+    logger.info(f"Trainable parameter count: {model_params}")
+
+    if torch.cuda.is_available():
+        model_pos = model_pos.cuda()
+
+    logger.info(f"Loading checkpoint {swing3d.constants.CHECKPOINT}")
+    checkpoint = torch.load(
+        swing3d.constants.CHECKPOINT, map_location=lambda storage, loc: storage
+    )
+    logger.info(f"This model was trained for {checkpoint['epoch']} epochs")
+    model_pos.load_state_dict(checkpoint["model_pos"])
+
+    return model_pos
+
+
+def pose3d(
+    keypoints: np.ndarray, resolution: tuple, output_path: Optional[str] = None
+) -> np.ndarray:
+
+    height, width = resolution
+    logger.info(f"Resolution - height={height} width={width}")
+
+    # Normalize camera frame
+    keypoints[..., :2] = swing3d.pose3d.normalize_screen_coordinates(
+        keypoints[..., :2], w=resolution[1], h=resolution[0],
+    )
+
+    model = load_model(
+        num_joints_in=keypoints.shape[-2], in_features=keypoints.shape[-1]
+    )
+
+    pad = calculate_padding(model)
+
+    keypoints_padded = pad_frames(keypoints, pad)
+
+    prediction = evaluate(keypoints_padded, model)
+
+    prediction = camera_to_world(
+        prediction, R=swing3d.constants.CAMERA_PARAMS["orientation"], t=0
+    )
+
+    prediction[:, :, 2] -= np.min(prediction[:, :, 2])
+
+    prediction = swing3d.utils.rotate_about_z(prediction, np.pi / 2)
+    prediction = swing3d.utils.rotate_about_y(prediction, np.pi)
+
+    if output_path is not None:
+        logger.info(f"Outputting 3D keypoints to {output_path}")
+        with open(output_path, "w") as f:
+            json.dump(prediction.tolist(), f)
+
+    return prediction
+
+
+if __name__ == "__main__":
+    pass

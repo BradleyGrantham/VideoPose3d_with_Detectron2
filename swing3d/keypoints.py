@@ -1,5 +1,6 @@
 import os
 import time
+from typing import Optional
 
 import click
 import cv2
@@ -156,14 +157,12 @@ def save_keypoints(output, resolution, output_path):
     np.savez_compressed(output_path, keypoints=output, resolution=resolution)
 
 
-@click.command()
-@click.argument("input-video")
-@click.option("--output-path")
-@click.option("--small-model/--large-model", default=False, help="Default is large model.")
-@click.option("--debug/--not-debug",)
-def main(input_video, output_path, small_model, debug):
-    start = time.time()
-
+def keypoints(
+    input_video: str,
+    output_path: Optional[str] = None,
+    small_model: bool = False,
+    debug: bool = False,
+):
     if small_model:
         model_config = swing3d.constants.SMALL_MODEL_CONFIG_PATH
         model_weights = swing3d.constants.SMALL_MODEL_WEIGHTS_PATH
@@ -172,11 +171,7 @@ def main(input_video, output_path, small_model, debug):
         model_weights = swing3d.constants.MODEL_WEIGHTS_PATH
 
     # Initialise pose predictor
-    pose_predictor = init_pose_predictor(
-        model_config,
-        model_weights,
-        cuda=True,
-    )
+    pose_predictor = init_pose_predictor(model_config, model_weights, cuda=True,)
 
     # Predict poses and save the result:
     if debug:
@@ -199,6 +194,21 @@ def main(input_video, output_path, small_model, debug):
         )
     else:
         save_keypoints(keypoints, resolution, output_path)
+
+    return keypoints, resolution
+
+
+@click.command()
+@click.argument("input-video")
+@click.option("--output-path")
+@click.option(
+    "--small-model/--large-model", default=False, help="Default is large model."
+)
+@click.option("--debug/--not-debug",)
+def main(input_video, output_path, small_model, debug):
+    start = time.time()
+
+    keypoints(input_video, output_path, small_model, debug)
 
     logger.info(f"Time taken: {time.time() - start}")
 
