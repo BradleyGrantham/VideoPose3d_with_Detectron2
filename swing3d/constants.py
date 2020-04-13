@@ -40,5 +40,48 @@ DROPOUT = 0.25
 CAUSAL = False
 CHANNELS = 1024
 DENSE = False
+CAUSAL_SHIFT = 0
 
 CHECKPOINT = "../../VideoPose3D/checkpoint/pretrained_h36m_detectron_coco.bin"
+
+# MISC
+DEBUG_BANNER = (
+    """
+DDDDDDDDDDDDD      EEEEEEEEEEEEEEEEEEEEEEBBBBBBBBBBBBBBBBB   UUUUUUUU     U
+UUUUUUU       GGGGGGGGGGGGG;
+D::::::::::::DDD   E::::::::::::::::::::EB::::::::::::::::B  U::::::U     U
+::::::U    GGG::::::::::::G;
+D:::::::::::::::DD E::::::::::::::::::::EB::::::BBBBBB:::::B U::::::U     U
+::::::U  GG:::::::::::::::G;
+DDD:::::DDDDD:::::DEE::::::EEEEEEEEE::::EBB:::::B     B:::::BUU:::::U     U
+:::::UU G:::::GGGGGGGG::::G;
+  D:::::D    D:::::D E:::::E       EEEEEE  B::::B     B:::::B U:::::U     U
+:::::U G:::::G       GGGGGG;
+  D:::::D     D:::::DE:::::E               B::::B     B:::::B U:::::D     D
+:::::UG:::::G              ;
+  D:::::D     D:::::DE::::::EEEEEEEEEE     B::::BBBBBB:::::B  U:::::D     D
+:::::UG:::::G              ;
+  D:::::D     D:::::DE:::::::::::::::E     B:::::::::::::BB   U:::::D     D
+:::::UG:::::G    GGGGGGGGGG;
+  D:::::D     D:::::DE:::::::::::::::E     B::::BBBBBB:::::B  U:::::D     D
+:::::UG:::::G    G::::::::G;
+  D:::::D     D:::::DE::::::EEEEEEEEEE     B::::B     B:::::B U:::::D     D
+:::::UG:::::G    GGGGG::::G;
+  D:::::D     D:::::DE:::::E               B::::B     B:::::B U:::::D     D
+:::::UG:::::G        G::::G;
+  D:::::D    D:::::D E:::::E       EEEEEE  B::::B     B:::::B U::::::U   U:
+:::::U G:::::G       G::::G;
+DDD:::::DDDDD:::::DEE::::::EEEEEEEE:::::EBB:::::BBBBBB::::::B U:::::::UUU::
+:::::U  G:::::GGGGGGGG::::G;
+D:::::::::::::::DD E::::::::::::::::::::EB:::::::::::::::::B   UU::::::::::
+:::UU    GG:::::::::::::::G;
+D::::::::::::DDD   E::::::::::::::::::::EB::::::::::::::::B      UU::::::::
+:UU        GGG::::::GGG:::G;
+DDDDDDDDDDDDD      EEEEEEEEEEEEEEEEEEEEEEBBBBBBBBBBBBBBBBB         UUUUUUUU
+U             GGGGGG   GGGG;
+""".replace(
+        "\n", ""
+    )
+    .replace(";", "\n")
+    .split("\n")
+)
