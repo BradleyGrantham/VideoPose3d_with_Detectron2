@@ -12,6 +12,26 @@ SMALL_MODEL_WEIGHTS_PATH = "../../model_final_a6e10b.pkl"
 DEBUG_IMAGE_PATH = "../assets/debug_frame.png"
 DEBUG_OUTPUT_PATH = "../assets/debug_output.png"
 
+KEYPOINT_MAPPING = {
+    0: "crotch",
+    1: "right_hip",
+    2: "right_knee",
+    3: "right foot",
+    4: "left hip",
+    5: "left knee",
+    6: "left foot",
+    7: "chest",
+    8: "neck",
+    9: "nose",
+    10: "head",
+    11: "left_shoulder",
+    12: "left_elbow",
+    13: "left_hand",
+    14: "right_shoulder",
+    15: "right_elbow",
+    16: "right_hand"
+}
+
 # POSE3D
 CAMERA_PARAMS = {
     # Dummy camera parameters (taken from Human3.6M), only for visualization purposes
