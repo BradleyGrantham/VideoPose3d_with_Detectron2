@@ -6,8 +6,8 @@ import torch
 import torch.nn as nn
 from loguru import logger
 
-import swing3d.constants
-import swing3d.utils
+import golf.swing3d.constants
+import golf.swing3d.utils
 
 
 class TemporalModelBase(nn.Module):

@@ -10,8 +10,8 @@ from detectron2.config import get_cfg
 from detectron2.modeling import build_model
 from loguru import logger
 
-import swing3d.constants
-import swing3d.utils
+import golf.swing3d.constants
+import golf.swing3d.utils
 
 
 def get_img_paths(imgs_dir):

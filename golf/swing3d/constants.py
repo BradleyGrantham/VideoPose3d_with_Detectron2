@@ -1,16 +1,16 @@
 # KEYPOINT DETECTION
 MODEL_CONFIG_PATH = (
-    "../../detectron2/configs/COCO-Keypoints/keypoint_rcnn_X_101_32x8d_FPN_3x.yaml"
+    "../../../detectron2/configs/COCO-Keypoints/keypoint_rcnn_X_101_32x8d_FPN_3x.yaml"
 )
-MODEL_WEIGHTS_PATH = "../../model_final_5ad38f.pkl"
+MODEL_WEIGHTS_PATH = "../../../model_final_5ad38f.pkl"
 
 SMALL_MODEL_CONFIG_PATH = (
-    "../../detectron2/configs/COCO-Keypoints/keypoint_rcnn_R_50_FPN_3x.yaml"
+    "../../../detectron2/configs/COCO-Keypoints/keypoint_rcnn_R_50_FPN_3x.yaml"
 )
-SMALL_MODEL_WEIGHTS_PATH = "../../model_final_a6e10b.pkl"
+SMALL_MODEL_WEIGHTS_PATH = "../../../model_final_a6e10b.pkl"
 
-DEBUG_IMAGE_PATH = "../assets/debug_frame.png"
-DEBUG_OUTPUT_PATH = "../assets/debug_output.png"
+DEBUG_IMAGE_PATH = "../../data/debug_frame.png"
+DEBUG_OUTPUT_PATH = "../../data/debug_output.png"
 
 KEYPOINT_MAPPING = {
     0: "crotch",
@@ -62,7 +62,7 @@ CHANNELS = 1024
 DENSE = False
 CAUSAL_SHIFT = 0
 
-CHECKPOINT = "../../VideoPose3D/checkpoint/pretrained_h36m_detectron_coco.bin"
+CHECKPOINT = "../../../VideoPose3D/checkpoint/pretrained_h36m_detectron_coco.bin"
 
 # MISC
 DEBUG_BANNER = (

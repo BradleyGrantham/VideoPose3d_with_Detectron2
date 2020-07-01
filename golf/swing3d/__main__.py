@@ -1,10 +1,10 @@
 import click
 from loguru import logger
 
-import swing3d.constants
-import swing3d.utils
-import swing3d.pose3d
-import swing3d.keypoints
+import golf.swing3d.constants
+import golf.swing3d.utils
+import golf.swing3d.pose3d
+import golf.swing3d.keypoints
 
 
 @click.command()
@@ -17,11 +17,11 @@ import swing3d.keypoints
 )
 @click.option("--debug/--not-debug", default=False)
 def main(input_video, output_path, small_kps_model, debug):
-    keypoints, resolution = swing3d.keypoints.keypoints(
+    keypoints, resolution = golf.swing3d.keypoints.keypoints(
         input_video, output_path=None, small_model=small_kps_model, debug=debug
     )
 
-    swing3d.pose3d.pose3d(keypoints, resolution, output_path=output_path)
+    golf.swing3d.pose3d.pose3d(keypoints, resolution, output_path=output_path)
 
 
 if __name__ == "__main__":

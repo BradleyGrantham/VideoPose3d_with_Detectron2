@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from loguru import logger
 
-import swing3d.constants
+import golf.swing3d.constants
 
 
 def grouper(n, iterable):
