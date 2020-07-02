@@ -15,24 +15,6 @@ def grouper(n, iterable):
     return zip_longest(fillvalue=None, *args)
 
 
-def read_video(filename):
-    cap = cv2.VideoCapture(filename)
-
-    frames = []
-    while True:
-        ret, frame = cap.read()
-        if ret:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frame = np.rot90(frame, k=3)
-            # frames.append({"image": torch.from_numpy(np.moveaxis(frame, -1, 0).copy())})
-            frames.append(frame)
-        else:
-            break
-    cap.release()
-
-    return frames
-
-
 def plot_image_and_keypoints(image, keypoints, output_path=None):
     plt.imshow(image)
     plt.scatter(keypoints[:, 0], keypoints[:, 1])
@@ -67,5 +49,5 @@ def rotate_about_y(predictions, theta):
 
 
 def print_debug_banner():
-    for l in swing3d.constants.DEBUG_BANNER:
+    for l in golf.swing3d.constants.DEBUG_BANNER:
         logger.info(l)
