@@ -62,6 +62,8 @@ def golfDB_from_mat() -> pd.DataFrame:
         + df["bbox"].apply(lambda a: str(a[0]))
     ).apply(sha1)
 
+    df = df[df["youtube_id"] != "RibG0A13urY"]
+
     return df
 
 
@@ -109,7 +111,6 @@ def load_array(swing_id: str) -> Tuple[np.ndarray, np.ndarray]:
     filepath = f"../../data/golfDB/videos/{video_id}.mp4"
 
     X = golf.io.read_video(filepath, rot=False)
-    X = np.stack(X, axis=0)
 
     X = crop_array(X, swing["bbox"])
 
@@ -149,8 +150,8 @@ def preprocess_videos(view_type: str):
         f"Number of unique YouTube videos: {len(data['youtube_id'].unique()):3d}"
     )
     logger.info(f"Number of annotations: {len(data['swing_id'].unique()):3d}")
-    youtube_ids = download_videos(return_ids=True, df=data)
-    data = data[data["youtube_id"].isin(youtube_ids)]
+    # youtube_ids = download_videos(return_ids=True, df=data)
+    # data = data[data["youtube_id"].isin(youtube_ids)]
     for index, row in data.iterrows():
         logger.info(f"Loading {row['swing_id']} as array")
         X, y = load_array(row["swing_id"])
