@@ -29,7 +29,7 @@ KEYPOINT_MAPPING = {
     13: "left_hand",
     14: "right_shoulder",
     15: "right_elbow",
-    16: "right_hand"
+    16: "right_hand",
 }
 
 # POSE3D
